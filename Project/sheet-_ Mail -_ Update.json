@@ -1,5 +1,5 @@
 {
-  "name": "Spreadsheet Upload → Combined Email",
+  "name": "sheet-> Mail -> Update",
   "nodes": [
     {
       "parameters": {
@@ -39,6 +39,7 @@
     },
     {
       "parameters": {
+        "operation": "remove",
         "documentId": {
           "__rl": true,
           "mode": "url",
@@ -49,8 +50,7 @@
           "mode": "id",
           "value": "0",
           "cachedResultName": "First sheet"
-        },
-        "options": {}
+        }
       },
       "id": "87193b45-7b4c-4226-938d-ec762fd82266",
       "name": "Read Sheet",
@@ -544,7 +544,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "07da342e-da35-41cc-b5a6-00c07743525b",
+  "versionId": "6275f2df-ec14-4d50-ab96-8655a366b86e",
   "meta": {
     "instanceId": "de0efd0485270fa215a717ba9f850375d39e0ae7d42d552b821fbe79a977f733"
   },

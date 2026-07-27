@@ -1,0 +1,235 @@
+{
+  "name": "Company Enrichment from Google Sheet",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "639f6907-b521-468d-a7bb-b4cae989d13d",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        224
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "url",
+          "value": "",
+          "__regex": "https:\\/\\/docs\\.google\\.com\\/spreadsheets\\/d\\/[0-9a-zA-Z\\-_]+.*\\#gid=([0-9]+)"
+        }
+      },
+      "id": "deaf86a9-2649-4593-9045-95fb4069d8da",
+      "name": "Read Companies",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        224
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CDqf1nif8VRXXSTr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Find publicly available contact details for this company: {{ $json[\"Company Name\"] }}\n\nUse web search to locate the official website, a public contact email address, and a public phone number. Only return information you can verify from search results. If a field cannot be found, return an empty string for it. Do not guess or fabricate values.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a company research assistant. You use web search to find the official website, public contact email, and public phone number of a company. Return only verifiable public data. Never invent emails, phone numbers, or URLs — use an empty string when a value cannot be confirmed."
+        }
+      },
+      "id": "f9ac5261-bea8-43b1-b57e-70885b2e59f4",
+      "name": "Enrich Company",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {
+          "webSearch": {
+            "searchContextSize": "medium"
+          }
+        },
+        "options": {}
+      },
+      "id": "db7b0bca-acec-4cd5-a7f1-ad7ae3e14cdc",
+      "name": "OpenAI (Web Search)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        640,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\":\"object\",\"properties\":{\"website\":{\"type\":\"string\",\"description\":\"Official website URL, or empty string if not found\"},\"email\":{\"type\":\"string\",\"description\":\"Public contact email, or empty string if not found\"},\"phone\":{\"type\":\"string\",\"description\":\"Public phone number, or empty string if not found\"}},\"required\":[\"website\",\"email\",\"phone\"]}"
+      },
+      "id": "ac1a463b-5979-4c9a-95b4-4b4afed305e3",
+      "name": "Enrichment Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Select the spreadsheet with company names"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Select the sheet/tab"
+        }
+      },
+      "id": "1b7eac09-40ec-4bb3-8523-d1d2727e7d35",
+      "name": "Write Results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b82ac4d7-234a-4150-9e4f-932c53041596",
+      "name": "Loop Over Companies",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Read Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Companies": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Company": {
+      "main": [
+        [
+          {
+            "node": "Write Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (Web Search)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Enrich Company",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrichment Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Enrich Company",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Results": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Companies": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Enrich Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "880deae7-5455-49ea-8420-591733f5c1bc",
+  "meta": {
+    "instanceId": "de0efd0485270fa215a717ba9f850375d39e0ae7d42d552b821fbe79a977f733"
+  },
+  "nodeGroups": [],
+  "id": "TRAcryqWKBTpThgd",
+  "tags": []
+}
