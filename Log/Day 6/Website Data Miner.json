@@ -1,0 +1,572 @@
+{
+  "name": "Website Data Miner",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Ultimate Discovery Bot ",
+        "formDescription": "Paste the Google Sheet link.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Sheet Link",
+              "placeholder": "https://docs.google.com/spreadsheets/d/.../edit#gid=0",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Start Discovery"
+        }
+      },
+      "id": "fab50025-1ff6-428e-a085-ab59a171afb4",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "d41c0a0a-6552-4120-b027-55825046099f"
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $json['Sheet Link']; const idMatch = url.match(/\\/d\\/([a-zA-Z0-9-_]+)/); const gidMatch = url.match(/[#&]gid=([0-9]+)/); return { spreadsheetId: idMatch ? idMatch[1] : '', gid: gidMatch ? gidMatch[1] : '0', url };"
+      },
+      "id": "c85c8140-5a8a-4b08-b15b-c28af4303870",
+      "name": "ParseURL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('ParseURL').first().json.spreadsheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $('ParseURL').first().json.gid }}"
+        },
+        "options": {}
+      },
+      "id": "af0369f7-a61e-4cd1-a551-dd8b52e44aae",
+      "name": "ReadRows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AvU3lr06lwaDdwas",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "574a327b-2d02-4367-bc37-b6d4b535c9ce",
+      "name": "LoopRows",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.Status ? $json.Status.toString().trim().toLowerCase() : \"\" }}",
+              "value2": "done"
+            }
+          ]
+        }
+      },
+      "id": "179829e1-d175-4fc6-b857-54564e8a9a97",
+      "name": "Check Processed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        752,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let url = $json.Website; if (!url) return { Website: 'invalid' }; if (!url.startsWith('http')) url = 'https://' + url; const match = url.match(/^(?:https?:\\/\\/)?(?:[^@\\n]+@)?(?:www\\.)?([^:\\/\\n?]+)/); const domain = match ? match[1] : url; return { Website: $json.Website, url, domain, 'Status': 'Searching...', 'Home': 'Searching...', 'About Us': 'Not Found', 'Contact Us': 'Not Found', 'Services': 'Not Found' };"
+      },
+      "id": "3ed57e94-303a-4c17-b4f5-93c6f6948e3a",
+      "name": "InitWebsite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('ParseURL').first().json.spreadsheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $('ParseURL').first().json.gid }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "Website"
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b374b68-7fc2-470f-b404-41ad57a5d8c5",
+      "name": "PrefillRow",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1056,
+        144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AvU3lr06lwaDdwas",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "415c24f8-8129-4fc6-bff7-cc7584c6d950",
+      "name": "FetchHome",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1200,
+        144
+      ],
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = String($json.data || ''); const initData = $('InitWebsite').last().json; const Website = initData.Website; const rootUrl = initData.url; const domain = initData.domain; const links = []; const linkRegex = /<a\\s+(?:[^>]*?\\s+)?href=([\"'])(.*?)\\1/gi; let match; while ((match = linkRegex.exec(html)) !== null) { let url = match[2]; if (url.startsWith('/')) url = rootUrl.replace(/\\/$/, '') + url; else if (!url.startsWith('http')) url = rootUrl.replace(/\\/$/, '') + '/' + url; if (url.includes(domain)) links.push(url); } let cleaned = html.replace(/<(script|style|iframe|noscript|svg|button|form)[^>]*>[\\s\\S]*?<\\/\\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim(); const targets = []; targets.push({ type: 'home', Website, column: 'Home', content: cleaned.substring(0, 48000) }); const find = (words) => links.find(l => words.some(w => l.toLowerCase().includes(w))); const about = find(['about', 'story', 'company', 'who-we-are']); if (about) targets.push({ type: 'crawl', Website, column: 'About Us', url: about }); const contact = find(['contact', 'support', 'reach', 'location']); if (contact) targets.push({ type: 'crawl', Website, column: 'Contact Us', url: contact }); const services = find(['service', 'solution', 'product', 'expertise', 'work']); if (services) targets.push({ type: 'crawl', Website, column: 'Services', url: services }); return targets;"
+      },
+      "id": "7bc9e628-22bb-485f-9784-1ff805a16c3a",
+      "name": "IdentifyPages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "873dd89b-3d15-4020-9e92-cd8f1f28632f",
+      "name": "LoopPages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "value2": "crawl"
+            }
+          ]
+        }
+      },
+      "id": "27b0a8a9-4583-4b8f-b217-232f8866c084",
+      "name": "IsCrawlable",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "1ca9f870-2069-44d8-aa5a-7da7da29187f",
+      "name": "FetchSpecific",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2000,
+        48
+      ],
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = String($json.data || ''); let cleaned = html.replace(/<(script|style|iframe|noscript|svg|button|form)[^>]*>[\\s\\S]*?<\\/\\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim(); const loopData = $('LoopPages').last().json; return { Website: loopData.Website, [loopData.column]: cleaned.substring(0, 48000) };"
+      },
+      "id": "3965e8fc-6824-49aa-8b7b-dc0a206f7407",
+      "name": "FormatPage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { Website: $json.Website, [$json.column]: $json.content };"
+      },
+      "id": "43cdadb3-e3e4-44df-a244-a4fb42c2e1e0",
+      "name": "FormatHome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('ParseURL').first().json.spreadsheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $('ParseURL').first().json.gid }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "Website"
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1572a2f-4879-47cc-af38-f8ca4164e3d8",
+      "name": "UpdateSheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2400,
+        144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AvU3lr06lwaDdwas",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return { Website: $('InitWebsite').last().json.Website, Status: 'Done' };"
+      },
+      "id": "981c2e32-6efd-412f-afbf-6e7322124415",
+      "name": "PrepMarkDone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('ParseURL').first().json.spreadsheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "={{ $('ParseURL').first().json.gid }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "Website"
+          ]
+        },
+        "options": {}
+      },
+      "id": "9b556587-c2b1-40c8-85a5-2c8de0d96227",
+      "name": "MarkDone",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        352
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "AvU3lr06lwaDdwas",
+          "name": "Google Sheets account 4"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "ParseURL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseURL": {
+      "main": [
+        [
+          {
+            "node": "ReadRows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadRows": {
+      "main": [
+        [
+          {
+            "node": "LoopRows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoopRows": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Check Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Processed": {
+      "main": [
+        [
+          {
+            "node": "LoopRows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "InitWebsite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "InitWebsite": {
+      "main": [
+        [
+          {
+            "node": "PrefillRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PrefillRow": {
+      "main": [
+        [
+          {
+            "node": "FetchHome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchHome": {
+      "main": [
+        [
+          {
+            "node": "IdentifyPages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IdentifyPages": {
+      "main": [
+        [
+          {
+            "node": "LoopPages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoopPages": {
+      "main": [
+        [
+          {
+            "node": "PrepMarkDone",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IsCrawlable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PrepMarkDone": {
+      "main": [
+        [
+          {
+            "node": "MarkDone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MarkDone": {
+      "main": [
+        [
+          {
+            "node": "LoopRows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IsCrawlable": {
+      "main": [
+        [
+          {
+            "node": "FetchSpecific",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FormatHome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchSpecific": {
+      "main": [
+        [
+          {
+            "node": "FormatPage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FormatPage": {
+      "main": [
+        [
+          {
+            "node": "UpdateSheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FormatHome": {
+      "main": [
+        [
+          {
+            "node": "UpdateSheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateSheet": {
+      "main": [
+        [
+          {
+            "node": "LoopPages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3c55ccf2-ca36-4595-a685-246d1260aaec",
+  "meta": {
+    "instanceId": "622818e025fb0350912891a2759a845557d24e7554ad8b560b3bbfc880ba7e6a"
+  },
+  "nodeGroups": [],
+  "id": "9B27FxzUszj32duJ",
+  "tags": []
+}
