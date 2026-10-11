@@ -49,7 +49,7 @@
 
 | Day | Milestone Focus | Deliverable |
 | :---: | :--- | :--- |
-| **Day 1** | Foundation & Environment Setup | Environment orchestration & architecture design log |
+| **Day 1** | Foundation & Architecture | Orchestration & architecture design log |
 | **Day 2** | Company Enrichment & Email Parsing | `Company Enrichment from Google Sheet.json`, `sheet-_ Mail -_ Update.json` |
 | **Day 3** | Resilient Webhook Handlers | Rate limiting, error trapping & retry protocols |
 | **Day 4** | Real-Time Sheet Row Verification | `Sheet Row Verify & Auto-Update.json` |
@@ -100,8 +100,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 <div align="center">
 
-**Developed with ❤️ by Fuad**  
-*Developed by Softece*  
-*Automation Ecosystem*
+**Developed ❤️ by Softece**
 
 </div>
